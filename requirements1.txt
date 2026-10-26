@@ -1,0 +1,7 @@
+Flask
+gunicorn
+pandas
+scikit-learn
+PyPDF2
+python-docx
+reportlab
