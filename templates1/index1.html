@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>AI Resume Analyzer & Job Matcher</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style1.css') }}"
+    >
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="topbar">
+        <a class="brand" href="#top">
+            <span class="logo">CV</span>
+
+            <span>
+                Career<span class="brand-light">Match</span>
+                <small>AI RESUME ANALYZER</small>
+            </span>
+        </a>
+
+        <nav>
+            <a href="#analyzer">Analyzer</a>
+            <a href="#resumeStudio">Resume Studio</a>
+            <a href="#results">Results</a>
+        </nav>
+    </header>
+
+    <main id="top">
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div>
+                <span class="eyebrow">SMART CAREER TOOLS</span>
+
+                <h1>
+                    Your next opportunity<br>
+                    <span>starts with your resume.</span>
+                </h1>
+
+                <p>
+                    Analyze your resume, explore skill gaps, compare job
+                    descriptions, and preview an improved resume in one workspace.
+                </p>
+
+                <a class="primary-link" href="#analyzer">
+                    Start analyzing <b>→</b>
+                </a>
+            </div>
+
+            <div class="hero-art">
+                <div class="float-card">
+                    <span class="tiny-icon">✓</span>
+
+                    <div>
+                        <b>Resume insights</b>
+                        <small>Skills · keywords · job fit</small>
+                    </div>
+                </div>
+
+                <div class="hero-paper">
+                    <div class="paper-head"></div>
+                    <div class="paper-line w80"></div>
+                    <div class="paper-line w60"></div>
+                    <div class="paper-tag"></div>
+                    <div class="paper-line"></div>
+                    <div class="paper-line w80"></div>
+                    <div class="paper-line w60"></div>
+                    <div class="paper-tag short"></div>
+                </div>
+
+                <div class="float-score">
+                    <small>JOB MATCH</small>
+                    <strong>↑</strong>
+                    <span>Find your fit</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Steps -->
+        <div class="quick-stats">
+            <div>
+                <strong>01</strong>
+                <span>Upload your resume</span>
+            </div>
+
+            <div>
+                <strong>02</strong>
+                <span>Compare job descriptions</span>
+            </div>
+
+            <div>
+                <strong>03</strong>
+                <span>Review your insights</span>
+            </div>
+
+            <div>
+                <strong>04</strong>
+                <span>Improve your resume</span>
+            </div>
+        </div>
+
+        <!-- Resume Analyzer -->
+        <section class="section" id="analyzer">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">STEP 01 · ANALYZE</span>
+                    <h2>Resume &amp; job analysis</h2>
+
+                    <p>
+                        Upload a resume and enter one or more job descriptions.
+                        Separate multiple jobs with a line containing
+                        <code>---</code>.
+                    </p>
+                </div>
+            </div>
+
+            <form id="resumeForm" class="analyzer-grid">
+
+                <!-- Resume Upload -->
+                <div class="panel upload-panel">
+                    <label class="field-title" for="resume">
+                        Upload your resume
+                    </label>
+
+                    <p class="muted">PDF, DOCX or TXT · Maximum 5 MB</p>
+
+                    <label class="dropzone" id="dropzone" for="resume">
+                        <span class="upload-icon">↑</span>
+                        <b>Choose a resume file</b>
+                        <span>or drag and drop it here</span>
+                        <small id="fileName">No file selected</small>
+                    </label>
+
+                    <input
+                        type="file"
+                        id="resume"
+                        name="resume"
+                        accept=".pdf,.docx,.txt"
+                        required
+                    >
+
+                    <div class="privacy-note">
+                        Your file is processed for this analysis only;
+                        this demo does not save it to a database.
+                    </div>
+                </div>
+
+                <!-- Job Description -->
+                <div class="panel job-panel">
+                    <label class="field-title" for="jobs">
+                        Target job descriptions
+                    </label>
+
+                    <p class="muted">
+                        Paste requirements from a job ad, or try the sample below.
+                    </p>
+
+                    <textarea
+                        id="jobs"
+                        name="jobs"
+                        placeholder="Example: Data Analyst&#10;Required skills: SQL, Excel, Python, Power BI...&#10;Responsibilities: Analyze data and prepare reports."
+                        required
+                    ></textarea>
+
+                    <div class="field-actions">
+                        <button
+                            type="button"
+                            class="text-button"
+                            id="sampleJob"
+                        >
+                            Insert Data Analyst sample
+                        </button>
+
+                        <span class="muted">
+                            Multiple jobs: use --- between them
+                        </span>
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        id="analyzeBtn"
+                        type="submit"
+                    >
+                        Analyze resume <span>→</span>
+                    </button>
+
+                    <p id="error" class="error" role="alert"></p>
+                </div>
+
+            </form>
+        </section>
+
+        <!-- Analysis Results Dashboard -->
+        <section id="results" class="section hidden">
+
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">STEP 02 · INSIGHTS</span>
+                    <h2>Your analysis dashboard</h2>
+
+                    <p>
+                        Use these indicators to compare the resume text with
+                        the job requirements. Scores are estimates, not
+                        hiring decisions.
+                    </p>
+                </div>
+
+                <button
+                    id="downloadReport"
+                    class="secondary-button"
+                    type="button"
+                >
+                    ↓ Download analysis PDF
+                </button>
+            </div>
+
+            <!-- Summary Metrics -->
+            <div class="metric-grid">
+
+                <article class="metric-card">
+                    <span>Resume readiness indicator</span>
+
+                    <strong id="atsScore">
+                        —<small>/100</small>
+                    </strong>
+
+                    <div class="metric-track">
+                        <i id="atsBar"></i>
+                    </div>
+
+                    <small>
+                        Heuristic indicator, not an official ATS score
+                    </small>
+                </article>
+
+                <article class="metric-card">
+                    <span>Keyword coverage</span>
+
+                    <strong id="coverage">
+                        —<small>%</small>
+                    </strong>
+
+                    <div class="metric-track">
+                        <i id="coverageBar"></i>
+                    </div>
+
+                    <small>Required skills detected in resume</small>
+                </article>
+
+                <article class="metric-card">
+                    <span>Skills detected</span>
+                    <strong id="skillsTotal">—</strong>
+
+                    <small id="sectionsText">
+                        Across supported skill categories
+                    </small>
+                </article>
+
+                <article class="metric-card">
+                    <span>Jobs compared</span>
+                    <strong id="jobsTotal">—</strong>
+
+                    <small>Ranked by text similarity</small>
+                </article>
+
+            </div>
+
+            <!-- Charts and Skills -->
+            <div class="insight-grid">
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Keyword coverage by job</h3>
+
+                            <p class="muted">
+                                Percentage of listed job skills detected
+                                in the resume
+                            </p>
+                        </div>
+                    </div>
+
+                    <div id="coverageChart" class="bar-chart"></div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Resume skill map</h3>
+
+                            <p class="muted">
+                                Detected skills in your uploaded resume
+                            </p>
+                        </div>
+                    </div>
+
+                    <div id="skillHeatmap" class="skill-cloud"></div>
+                </article>
+
+            </div>
+
+            <!-- Job Match Results -->
+            <article class="panel job-results-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Job match rankings</h3>
+
+                        <p class="muted">
+                            Ranked by text similarity, with matching
+                            and missing keywords
+                        </p>
+                    </div>
+                </div>
+
+                <div id="jobResults"></div>
+            </article>
+
+        </section>
+
+        <!-- Resume Studio -->
+        <section class="section" id="resumeStudio">
+
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">STEP 03 · RESUME STUDIO</span>
+                    <h2>Resume preview &amp; editor</h2>
+
+                    <p>
+                        After analyzing a resume, its extracted text appears
+                        here. Edit it and preview three simple styles.
+                    </p>
+                </div>
+
+                <button
+                    class="secondary-button"
+                    id="downloadResume"
+                    type="button"
+                >
+                    ↓ Download edited TXT
+                </button>
+            </div>
+
+            <div class="studio-grid">
+
+                <!-- Resume Editor -->
+                <div class="panel editor-panel">
+                    <label class="field-title" for="resumeEditor">
+                        Editable resume text
+                    </label>
+
+                    <textarea
+                        id="resumeEditor"
+                        placeholder="Upload and analyze a resume first. Extracted resume text will appear here."
+                    ></textarea>
+
+                    <p class="muted">
+                        Edits here affect the preview/download.
+                        Re-run analysis to score edited text.
+                    </p>
+                </div>
+
+                <!-- Resume Preview -->
+                <div class="preview-wrap">
+
+                    <div
+                        class="template-tabs"
+                        role="group"
+                        aria-label="Resume preview template"
+                    >
+                        <button
+                            class="template-tab active"
+                            data-template="modern"
+                            type="button"
+                        >
+                            Modern
+                        </button>
+
+                        <button
+                            class="template-tab"
+                            data-template="classic"
+                            type="button"
+                        >
+                            Classic
+                        </button>
+
+                        <button
+                            class="template-tab"
+                            data-template="professional"
+                            type="button"
+                        >
+                            Professional
+                        </button>
+                    </div>
+
+                    <article
+                        id="resumePreview"
+                        class="resume-preview modern"
+                    >
+                        <div class="preview-placeholder">
+                            <span class="preview-icon">▤</span>
+
+                            <h3>Your resume preview</h3>
+
+                            <p>
+                                Upload a resume and analyze it to preview
+                                the extracted content.
+                            </p>
+                        </div>
+                    </article>
+
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Disclaimer -->
+        <section class="disclaimer">
+            <b>Keep in mind</b>
+
+            <p>
+                Match percentages reflect text similarity and detected
+                keywords. They do not measure a person's true ability,
+                guarantee an interview, or replace a recruiter's judgement.
+            </p>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <span>CareerMatch · AI Resume Analyzer &amp; Job Matcher</span>
+        <span>Built for resume exploration and learning</span>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='script1.js') }}"></script>
+
+</body>
+</html>
