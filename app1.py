@@ -1,324 +1,511 @@
+/* ========================================
+   1. DOM Elements and Global Variables
+======================================== */
+
+const form = document.getElementById('resumeForm');
+const fileInput = document.getElementById('resume');
+const dropzone = document.getElementById('dropzone');
+const fileName = document.getElementById('fileName');
+const jobsInput = document.getElementById('jobs');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const errorBox = document.getElementById('error');
+const resultsSection = document.getElementById('results');
+const resumeEditor = document.getElementById('resumeEditor');
+const resumePreview = document.getElementById('resumePreview');
+
+let latestAnalysis = null;
 
 
-from flask import Flask, render_template, request, jsonify, send_file
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from PyPDF2 import PdfReader
-from docx import Document
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from pathlib import Path
-import re
-import io
-import textwrap
-import logging
+/* ========================================
+   2. Resume File Selection
+======================================== */
 
-app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
-
-logging.basicConfig(level=logging.INFO)
-
-SKILLS = [
-    "python", "java", "javascript", "html", "css", "sql", "mysql",
-    "flask", "django", "react", "c", "c++", "git", "github",
-    "rest api", "api integration", "debugging", "testing",
-    "responsive web design", "web development",
-    "machine learning", "deep learning", "artificial intelligence",
-    "data analysis", "data visualization", "pandas", "numpy",
-    "scikit-learn", "tensorflow", "statistics", "excel",
-    "power bi", "tableau", "data cleaning",
-    "aws", "azure", "docker", "cloud computing", "linux",
-    "networking", "cybersecurity", "information security",
-    "network security", "log analysis", "risk assessment",
-    "incident response", "vulnerability assessment",
-    "access control", "monitoring", "scripting",
-    "figma", "wireframing", "prototyping", "user research",
-    "usability testing", "design systems", "accessibility",
-    "ui design", "ux design",
-    "accounting", "bookkeeping", "financial reporting",
-    "accounts payable", "accounts receivable", "bank reconciliation",
-    "budgeting", "financial analysis", "taxation", "payroll",
-    "customer service", "customer support", "customer relationship",
-    "active listening", "conflict resolution", "product knowledge",
-    "sales", "cash handling", "inventory management",
-    "complaint handling", "ticket management", "email support",
-    "seo", "sem", "content marketing", "social media marketing",
-    "google analytics", "keyword research", "copywriting",
-    "email marketing", "campaign reporting",
-    "recruitment", "candidate screening", "interview scheduling",
-    "onboarding", "employee records", "human resources",
-    "documentation", "data entry",
-    "android", "kotlin", "mobile app development", "sqlite",
-    "teaching", "lesson planning", "classroom management",
-    "curriculum development", "assessment",
-    "operations management", "process improvement", "logistics",
-    "scheduling", "problem solving", "communication", "leadership",
-    "project management", "teamwork", "time management",
-    "organization", "analytical skills", "attention to detail"
-]
-
-RESUME_SECTIONS = [
-    "education", "experience", "work experience", "skills",
-    "projects", "certifications", "summary", "professional summary",
-    "objective", "achievements", "internships", "languages"
-]
+fileInput.addEventListener('change', () => {
+    fileName.textContent =
+        fileInput.files[0]?.name || 'No file selected';
+});
 
 
-def extract_resume(file):
-    filename = (file.filename or "").lower()
-    content = file.read()
+/* ========================================
+   3. Drag and Drop Resume Upload
+======================================== */
 
-    if filename.endswith(".pdf"):
-        reader = PdfReader(io.BytesIO(content))
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
+// Highlight the dropzone when dragging a file over it.
+['dragenter', 'dragover'].forEach(type => {
+    dropzone.addEventListener(type, event => {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+});
 
-    if filename.endswith(".docx"):
-        doc = Document(io.BytesIO(content))
-        paragraphs = [p.text for p in doc.paragraphs]
+// Remove the highlight when dragging away or dropping a file.
+['dragleave', 'drop'].forEach(type => {
+    dropzone.addEventListener(type, event => {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+    });
+});
 
-        for table in doc.tables:
-            for row in table.rows:
-                paragraphs.append(" | ".join(cell.text for cell in row.cells))
+// Handle the dropped resume file.
+dropzone.addEventListener('drop', event => {
+    const file = event.dataTransfer.files[0];
 
-        return "\n".join(paragraphs)
+    if (file) {
+        const dataTransfer = new DataTransfer();
 
-    if filename.endswith(".txt"):
-        return content.decode("utf-8", errors="ignore")
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
 
-    raise ValueError("Upload a PDF, DOCX, or TXT resume.")
-
-
-def find_skills(text):
-    text = text.lower()
-    found = []
-
-    for skill in SKILLS:
-        pattern = r"(?<!\w)" + re.escape(skill) + r"(?!\w)"
-        if re.search(pattern, text):
-            found.append(skill.title())
-
-    return found
-
-
-def calculate_match(resume_text, job_text):
-    # Handle empty or punctuation-only input safely.
-    if not resume_text.strip() or not job_text.strip():
-        return 0.0
-
-    vectorizer = TfidfVectorizer(
-        stop_words="english",
-        ngram_range=(1, 2)
-    )
-
-    try:
-        matrix = vectorizer.fit_transform([resume_text, job_text])
-    except ValueError:
-        return 0.0
-
-    score = cosine_similarity(matrix[0:1], matrix[1:2])[0][0]
-    return round(float(score) * 100, 2)
-
-
-def count_resume_sections(text):
-    lines = {
-        re.sub(r"[^a-z ]", "", line.lower()).strip()
-        for line in text.splitlines()
+        fileName.textContent = file.name;
     }
-    return sum(1 for section in RESUME_SECTIONS if section in lines)
+});
 
 
-@app.route("/")
-def home():
-    return render_template("index1.html")
+/* ========================================
+   4. Insert Sample Job Description
+======================================== */
+
+document.getElementById('sampleJob').addEventListener('click', () => {
+    jobsInput.value = `Data Analyst
+Required skills: Python, SQL, Excel, Power BI, statistics, data analysis, data cleaning, data visualization, pandas and NumPy.
+Responsibilities: Collect and clean data, create dashboards, analyze trends, write SQL queries and prepare reports.
+Qualifications: Analytical thinking, attention to detail and communication skills.`;
+
+    jobsInput.focus();
+});
 
 
-@app.route("/analyze", methods=["POST"])
-def analyze():
-    try:
-        resume = request.files.get("resume")
-        jobs_text = request.form.get("jobs", "").strip()
+/* ========================================
+   5. Resume Analysis Form Submission
+======================================== */
 
-        if not resume or not resume.filename:
-            return jsonify({"error": "Please upload your resume."}), 400
+form.addEventListener('submit', async event => {
+    event.preventDefault();
 
-        filename = resume.filename.lower()
-        if not filename.endswith((".pdf", ".docx", ".txt")):
-            return jsonify({
-                "error": "Only PDF, DOCX, and TXT files are supported."
-            }), 400
+    errorBox.textContent = '';
 
-        resume_text = extract_resume(resume).strip()
+    // Validate resume selection.
+    if (!fileInput.files.length) {
+        errorBox.textContent = 'Please choose a resume file.';
+        return;
+    }
 
-        if len(resume_text) < 30:
-            return jsonify({
-                "error": "Could not read enough text. Try a text-based PDF or DOCX."
-            }), 400
+    // Validate job description.
+    if (!jobsInput.value.trim()) {
+        errorBox.textContent =
+            'Please enter at least one target job description.';
+        return;
+    }
 
-        if not jobs_text:
-            return jsonify({
-                "error": "Please enter at least one job description."
-            }), 400
+    const originalButtonContent = analyzeBtn.innerHTML;
 
-        job_descriptions = [
-            job.strip()
-            for job in re.split(r"(?m)^\s*---\s*$", jobs_text)
-            if job.strip()
-        ]
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = 'Analyzing resume…';
 
-        if not job_descriptions:
-            return jsonify({
-                "error": "Please enter at least one valid job description."
-            }), 400
+    try {
+        const response = await fetch('/analyze', {
+            method: 'POST',
+            body: new FormData(form)
+        });
 
-        resume_skills = find_skills(resume_text)
-        results = []
+        // Handle non-JSON server responses safely.
+        const data = await response.json();
 
-        resume_skill_set = {skill.lower() for skill in resume_skills}
+        if (!response.ok) {
+            throw new Error(
+                data.error || 'Analysis failed. Please try again.'
+            );
+        }
 
-        for index, job in enumerate(job_descriptions, start=1):
-            job_skills = find_skills(job)
-            job_skill_set = {skill.lower() for skill in job_skills}
+        // Save and display analysis results.
+        latestAnalysis = data;
 
-            matched = [
-                skill for skill in resume_skills
-                if skill.lower() in job_skill_set
-            ]
-            missing = [
-                skill for skill in job_skills
-                if skill.lower() not in resume_skill_set
-            ]
+        renderAnalysis(data);
 
-            score = calculate_match(resume_text, job)
+        resultsSection.classList.remove('hidden');
 
-            coverage = (
-                round(len(matched) / len(job_skills) * 100, 2)
-                if job_skills else 0.0
-            )
+        // Populate the resume editor.
+        if (data.resume_text) {
+            resumeEditor.value = data.resume_text;
+        }
 
-            results.append({
-                "job_number": index,
-                "job_title": f"Job {index}",
-                "score": score,
-                "keyword_coverage": coverage,
-                "matched_skills": matched,
-                "missing_skills": missing,
-                "job_skills": job_skills
-            })
+        renderPreview();
 
-        results.sort(key=lambda item: item["score"], reverse=True)
+        // Scroll to the results dashboard.
+        setTimeout(() => {
+            resultsSection.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 100);
 
-        total_required = sum(len(item["job_skills"]) for item in results)
-        total_matched = sum(len(item["matched_skills"]) for item in results)
+    } catch (error) {
+        errorBox.textContent =
+            error.message ||
+            'Could not connect to the server. Check that app1.py is running.';
 
-        overall_coverage = (
-            round(total_matched / total_required * 100, 2)
-            if total_required else 0.0
-        )
-
-        average_similarity = (
-            round(sum(item["score"] for item in results) / len(results), 2)
-            if results else 0.0
-        )
-
-        return jsonify({
-            "resume_text": resume_text,
-            "resume_skills": resume_skills,
-            "results": results,
-            "ats_score": average_similarity,
-            "keyword_coverage": overall_coverage,
-            "sections_detected": count_resume_sections(resume_text)
-        })
-
-    except ValueError as error:
-        return jsonify({"error": str(error)}), 400
-    except Exception:
-        app.logger.exception("Resume analysis failed")
-        return jsonify({
-            "error": "Analysis failed. Please check the uploaded file and try again."
-        }), 500
+    } finally {
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerHTML = originalButtonContent;
+    }
+});
 
 
-@app.route("/download-report", methods=["POST"])
-def download_report():
-    data = request.get_json(silent=True)
+/* ========================================
+   6. Render Analysis Dashboard
+======================================== */
 
-    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
-        return jsonify({"error": "Invalid report data. Analyze a resume first."}), 400
+function renderAnalysis(data) {
+    const atsScore = Number(data.ats_score) || 0;
+    const keywordCoverage = Number(data.keyword_coverage) || 0;
 
-    try:
-        output = io.BytesIO()
-        pdf = canvas.Canvas(output, pagesize=A4)
-        page_width, page_height = A4
+    const resumeSkills = data.resume_skills || [];
+    const results = data.results || [];
 
-        x = 48
-        y = page_height - 50
+    // Update summary metrics.
+    document.getElementById('atsScore').innerHTML =
+        `${atsScore}<small>/100</small>`;
 
-        def write_line(text, font="Helvetica", size=10, gap=15):
-            nonlocal y
-            pdf.setFont(font, size)
+    document.getElementById('atsBar').style.width =
+        `${Math.min(100, atsScore)}%`;
 
-            # Use a standard PDF font and wrap long lines.
-            safe_text = str(text).encode("latin-1", "replace").decode("latin-1")
-            lines = textwrap.wrap(safe_text, width=95) or [""]
+    document.getElementById('coverage').innerHTML =
+        `${keywordCoverage}<small>%</small>`;
 
-            for line in lines:
-                if y < 55:
-                    pdf.showPage()
-                    y = page_height - 50
-                    pdf.setFont(font, size)
+    document.getElementById('coverageBar').style.width =
+        `${Math.min(100, keywordCoverage)}%`;
 
-                pdf.drawString(x, y, line)
-                y -= gap
+    document.getElementById('skillsTotal').textContent =
+        resumeSkills.length;
 
-        write_line("CareerMatch - Resume Analysis Report", "Helvetica-Bold", 16, 25)
-        write_line(
-            f"Resume readiness indicator: {data.get('ats_score', 0)} / 100"
-        )
-        write_line(
-            f"Keyword coverage: {data.get('keyword_coverage', 0)}%"
-        )
-        write_line(
-            "Note: Similarity and keyword metrics are estimates, not hiring decisions.",
-            size=9,
-            gap=22
-        )
+    document.getElementById('jobsTotal').textContent =
+        results.length;
 
-        write_line("Detected Resume Skills", "Helvetica-Bold", 12, 20)
-        skills = data.get("resume_skills", [])
-        write_line(", ".join(str(s) for s in skills) if skills else "No recognized skills detected.")
-
-        for index, job in enumerate(data["results"], start=1):
-            write_line(f"Job {index} - Text Similarity: {job.get('score', 0)}%",
-                       "Helvetica-Bold", 12, 20)
-            write_line(f"Keyword coverage: {job.get('keyword_coverage', 0)}%")
-            write_line("Matching skills: " + (
-                ", ".join(job.get("matched_skills", [])) or "None detected"
-            ))
-            write_line("Skills not detected: " + (
-                ", ".join(job.get("missing_skills", [])) or "None"
-            ), gap=22)
-
-        pdf.save()
-        output.seek(0)
-
-        return send_file(
-            output,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name="resume_analysis_report.pdf"
-        )
-
-    except Exception:
-        app.logger.exception("PDF report generation failed")
-        return jsonify({"error": "Could not generate the PDF report."}), 500
+    document.getElementById('sectionsText').textContent =
+        `${data.sections_detected || 0} common resume sections detected`;
 
 
-@app.errorhandler(413)
-def file_too_large(error):
-    return jsonify({
-        "error": "File is too large. Maximum size is 5 MB."
-    }), 413
+    /* ------------------------------------
+       6.1 Keyword Coverage Chart
+    ------------------------------------ */
+
+    const chart = document.getElementById('coverageChart');
+
+    chart.innerHTML = '';
+
+    results.forEach(job => {
+        const row = document.createElement('div');
+
+        row.className = 'bar-row';
+
+        const title = esc(job.job_title || 'Untitled job');
+        const coverage = Math.min(
+            100,
+            Number(job.keyword_coverage) || 0
+        );
+
+        row.innerHTML = `
+            <span class="bar-label" title="${title}">
+                ${title}
+            </span>
+
+            <div class="bar-track">
+                <div
+                    class="bar-fill"
+                    style="width: ${coverage}%"
+                ></div>
+            </div>
+
+            <span class="bar-value">
+                ${Number(job.keyword_coverage) || 0}%
+            </span>
+        `;
+
+        chart.appendChild(row);
+    });
+
+    if (results.length === 0) {
+        chart.innerHTML = `
+            <p class="empty-note">
+                No job descriptions were analyzed.
+            </p>
+        `;
+    }
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    /* ------------------------------------
+       6.2 Resume Skills Map
+    ------------------------------------ */
+
+    const heatmap = document.getElementById('skillHeatmap');
+
+    heatmap.innerHTML = '';
+
+    resumeSkills.forEach(skill => {
+        const skillElement = document.createElement('span');
+
+        skillElement.className = 'skill-chip';
+        skillElement.textContent = skill;
+
+        heatmap.appendChild(skillElement);
+    });
+
+    if (heatmap.children.length === 0) {
+        heatmap.innerHTML = `
+            <p class="empty-note">
+                No recognized skills found. Try a text-based resume
+                with a skills section.
+            </p>
+        `;
+    }
+
+
+    /* ------------------------------------
+       6.3 Job Match Results
+    ------------------------------------ */
+
+    const jobsContainer = document.getElementById('jobResults');
+
+    jobsContainer.innerHTML = '';
+
+    results.forEach((job, index) => {
+        const card = document.createElement('article');
+
+        card.className = 'job-result';
+
+        const matchedSkills = job.matched_skills || [];
+        const missingSkills = job.missing_skills || [];
+
+        const jobTitle = esc(
+            job.job_title || `Job ${index + 1}`
+        );
+
+        const score = Math.min(
+            100,
+            Math.max(0, Number(job.score) || 0)
+        );
+
+        const matchedHTML = matchedSkills.length
+            ? matchedSkills.map(skill => `
+                <span class="skill-chip">${esc(skill)}</span>
+            `).join('')
+            : '<span class="empty-note">No detected matching skills</span>';
+
+        const missingHTML = missingSkills.length
+            ? missingSkills.map(skill => `
+                <span
+                    class="skill-chip"
+                    style="background:#fff0f2;color:#ad4054;border-color:#f6d9de"
+                >
+                    ${esc(skill)}
+                </span>
+            `).join('')
+            : '<span class="empty-note">No missing listed skills</span>';
+
+        card.innerHTML = `
+            <div class="job-result-head">
+                <div>
+                    <h4>${index + 1}. ${jobTitle}</h4>
+                    <span class="muted">Text similarity score</span>
+                </div>
+
+                <span class="score-pill">
+                    ${score}% match
+                </span>
+            </div>
+
+            <div class="job-progress">
+                <i style="width:${score}%"></i>
+            </div>
+
+            <div class="skill-columns">
+
+                <div>
+                    <h5 class="match-heading">
+                        ✓ Matching skills (${matchedSkills.length})
+                    </h5>
+
+                    <div>${matchedHTML}</div>
+                </div>
+
+                <div>
+                    <h5 class="missing-heading">
+                        + Skills not detected (${missingSkills.length})
+                    </h5>
+
+                    <div>${missingHTML}</div>
+                </div>
+
+            </div>
+        `;
+
+        jobsContainer.appendChild(card);
+    });
+}
+
+
+/* ========================================
+   7. Escape HTML
+======================================== */
+
+function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+}
+
+
+/* ========================================
+   8. Resume Preview
+======================================== */
+
+function renderPreview() {
+    const text = resumeEditor.value.trim();
+
+    if (!text) {
+        resumePreview.innerHTML = `
+            <div class="preview-placeholder">
+                <span class="preview-icon">▤</span>
+
+                <h3>Your resume preview</h3>
+
+                <p>
+                    Upload and analyze a resume to preview its content.
+                </p>
+            </div>
+        `;
+
+        return;
+    }
+
+    // Use textContent to display resume text safely.
+    resumePreview.textContent = text;
+}
+
+// Update the preview whenever the user edits the resume.
+resumeEditor.addEventListener('input', renderPreview);
+
+
+/* ========================================
+   9. Resume Template Selection
+======================================== */
+
+document.querySelectorAll('.template-tab').forEach(button => {
+    button.addEventListener('click', () => {
+
+        // Update the active tab.
+        document.querySelectorAll('.template-tab').forEach(tab => {
+            tab.classList.toggle('active', tab === button);
+        });
+
+        // Change the resume preview style.
+        resumePreview.classList.remove(
+            'modern',
+            'classic',
+            'professional'
+        );
+
+        resumePreview.classList.add(button.dataset.template);
+    });
+});
+
+
+/* ========================================
+   10. Download Edited Resume
+======================================== */
+
+document.getElementById('downloadResume').addEventListener('click', () => {
+    const text = resumeEditor.value.trim();
+
+    if (!text) {
+        alert('Analyze a resume first, then edit the extracted text.');
+        return;
+    }
+
+    downloadBlob(
+        text,
+        'edited_resume.txt',
+        'text/plain;charset=utf-8'
+    );
+});
+
+
+/* ========================================
+   11. Download PDF Analysis Report
+======================================== */
+
+document.getElementById('downloadReport').addEventListener(
+    'click',
+    async () => {
+
+        if (!latestAnalysis) {
+            alert('Analyze a resume first.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/download-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(latestAnalysis)
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+
+                throw new Error(
+                    data.error || 'PDF report could not be created.'
+                );
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+
+            link.href = url;
+            link.download = 'resume_analysis_report.pdf';
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            URL.revokeObjectURL(url);
+
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+);
+
+
+/* ========================================
+   12. General File Download Helper
+======================================== */
+
+function downloadBlob(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = filename;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+}
+``` code for script1.js
+
+
+       
+   
