@@ -1,394 +1,510 @@
+/* ========================================
+   1. DOM Elements and Global Variables
+======================================== */
 
-"use strict";
-
-const form = document.getElementById("resumeForm");
-const fileInput = document.getElementById("resume");
-const dropzone = document.getElementById("dropzone");
-const fileName = document.getElementById("fileName");
-const jobsInput = document.getElementById("jobs");
-const analyzeBtn = document.getElementById("analyzeBtn");
-const errorBox = document.getElementById("error");
-const resultsSection = document.getElementById("results");
-const resumeEditor = document.getElementById("resumeEditor");
-const resumePreview = document.getElementById("resumePreview");
+const form = document.getElementById('resumeForm');
+const fileInput = document.getElementById('resume');
+const dropzone = document.getElementById('dropzone');
+const fileName = document.getElementById('fileName');
+const jobsInput = document.getElementById('jobs');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const errorBox = document.getElementById('error');
+const resultsSection = document.getElementById('results');
+const resumeEditor = document.getElementById('resumeEditor');
+const resumePreview = document.getElementById('resumePreview');
 
 let latestAnalysis = null;
 
-fileInput.addEventListener("change", () => {
-    fileName.textContent = fileInput.files[0]?.name || "No file selected";
+
+/* ========================================
+   2. Resume File Selection
+======================================== */
+
+fileInput.addEventListener('change', () => {
+    fileName.textContent =
+        fileInput.files[0]?.name || 'No file selected';
 });
 
-["dragenter", "dragover"].forEach(type => {
+
+/* ========================================
+   3. Drag and Drop Resume Upload
+======================================== */
+
+// Highlight the dropzone when dragging a file over it.
+['dragenter', 'dragover'].forEach(type => {
     dropzone.addEventListener(type, event => {
         event.preventDefault();
-        dropzone.classList.add("dragover");
+        dropzone.classList.add('dragover');
     });
 });
 
-["dragleave", "drop"].forEach(type => {
+// Remove the highlight when dragging away or dropping a file.
+['dragleave', 'drop'].forEach(type => {
     dropzone.addEventListener(type, event => {
         event.preventDefault();
-        dropzone.classList.remove("dragover");
+        dropzone.classList.remove('dragover');
     });
 });
 
-dropzone.addEventListener("drop", event => {
+// Handle the dropped resume file.
+dropzone.addEventListener('drop', event => {
     const file = event.dataTransfer.files[0];
-    if (!file) return;
 
-    const allowed = /\.(pdf|docx|txt)$/i.test(file.name);
-    if (!allowed) {
-        showError("Only PDF, DOCX, and TXT files are supported.");
-        return;
+    if (file) {
+        const dataTransfer = new DataTransfer();
+
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+
+        fileName.textContent = file.name;
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-        showError("File is too large. Maximum size is 5 MB.");
-        return;
-    }
-
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    fileInput.files = transfer.files;
-    fileName.textContent = file.name;
-    errorBox.textContent = "";
 });
 
-document.getElementById("sampleJob").addEventListener("click", () => {
+
+/* ========================================
+   4. Insert Sample Job Description
+======================================== */
+
+document.getElementById('sampleJob').addEventListener('click', () => {
     jobsInput.value = `Data Analyst
 Required skills: Python, SQL, Excel, Power BI, statistics, data analysis, data cleaning, data visualization, pandas and NumPy.
 Responsibilities: Collect and clean data, create dashboards, analyze trends, write SQL queries and prepare reports.
 Qualifications: Analytical thinking, attention to detail and communication skills.`;
+
     jobsInput.focus();
 });
 
-form.addEventListener("submit", async event => {
+
+/* ========================================
+   5. Resume Analysis Form Submission
+======================================== */
+
+form.addEventListener('submit', async event => {
     event.preventDefault();
-    errorBox.textContent = "";
 
+    errorBox.textContent = '';
+
+    // Validate resume selection.
     if (!fileInput.files.length) {
-        showError("Please choose a resume file.");
+        errorBox.textContent = 'Please choose a resume file.';
         return;
     }
 
+    // Validate job description.
     if (!jobsInput.value.trim()) {
-        showError("Please enter at least one target job description.");
+        errorBox.textContent =
+            'Please enter at least one target job description.';
         return;
     }
 
-    if (fileInput.files[0].size > 5 * 1024 * 1024) {
-        showError("File is too large. Maximum size is 5 MB.");
-        return;
-    }
+    const originalButtonContent = analyzeBtn.innerHTML;
 
-    const originalContent = analyzeBtn.innerHTML;
     analyzeBtn.disabled = true;
-    analyzeBtn.textContent = "Analyzing resume…";
+    analyzeBtn.textContent = 'Analyzing resume…';
 
     try {
-        const response = await fetch("/analyze", {
-            method: "POST",
+        const response = await fetch('/analyze', {
+            method: 'POST',
             body: new FormData(form)
         });
 
-        const data = await response.json().catch(() => ({}));
+        // Handle non-JSON server responses safely.
+        const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || "Analysis failed. Please try again.");
+            throw new Error(
+                data.error || 'Analysis failed. Please try again.'
+            );
         }
 
+        // Save and display analysis results.
         latestAnalysis = data;
+
         renderAnalysis(data);
 
-        // Populate the editor with extracted resume text.
-        resumeEditor.value = data.resume_text || "";
+        resultsSection.classList.remove('hidden');
+
+        // Populate the resume editor.
+        if (data.resume_text) {
+            resumeEditor.value = data.resume_text;
+        }
+
         renderPreview();
 
-        resultsSection.classList.remove("hidden");
+        // Scroll to the results dashboard.
+        setTimeout(() => {
+            resultsSection.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 100);
 
-        resultsSection.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
     } catch (error) {
-        showError(error.message || "Could not connect to the server.");
+        errorBox.textContent =
+            error.message ||
+            'Could not connect to the server. Check that app1.py is running.';
+
     } finally {
         analyzeBtn.disabled = false;
-        analyzeBtn.innerHTML = originalContent;
+        analyzeBtn.innerHTML = originalButtonContent;
     }
 });
 
-function showError(message) {
-    errorBox.textContent = message;
-}
+
+/* ========================================
+   6. Render Analysis Dashboard
+======================================== */
 
 function renderAnalysis(data) {
-    const results = Array.isArray(data.results) ? data.results : [];
-    const skills = Array.isArray(data.resume_skills) ? data.resume_skills : [];
+    const atsScore = Number(data.ats_score) || 0;
+    const keywordCoverage = Number(data.keyword_coverage) || 0;
 
-    const score = clamp(data.ats_score);
-    const coverage = clamp(data.keyword_coverage);
+    const resumeSkills = data.resume_skills || [];
+    const results = data.results || [];
 
-    document.getElementById("atsScore").innerHTML =
-        `${score}<small>/100</small>`;
-    document.getElementById("atsBar").style.width = `${score}%`;
+    // Update summary metrics.
+    document.getElementById('atsScore').innerHTML =
+        `${atsScore}<small>/100</small>`;
 
-    document.getElementById("coverage").innerHTML =
-        `${coverage}<small>%</small>`;
-    document.getElementById("coverageBar").style.width = `${coverage}%`;
+    document.getElementById('atsBar').style.width =
+        `${Math.min(100, atsScore)}%`;
 
-    document.getElementById("skillsTotal").textContent = skills.length;
-    document.getElementById("jobsTotal").textContent = results.length;
-    document.getElementById("sectionsText").textContent =
-        `${Number(data.sections_detected) || 0} common resume sections detected`;
+    document.getElementById('coverage').innerHTML =
+        `${keywordCoverage}<small>%</small>`;
 
-    renderCoverageChart(results);
-    renderSkillMap(skills);
-    renderJobResults(results);
-}
+    document.getElementById('coverageBar').style.width =
+        `${Math.min(100, keywordCoverage)}%`;
 
-function clamp(value) {
-    const number = Number(value);
-    return Number.isFinite(number)
-        ? Math.min(100, Math.max(0, number))
-        : 0;
-}
+    document.getElementById('skillsTotal').textContent =
+        resumeSkills.length;
 
-function renderCoverageChart(results) {
-    const chart = document.getElementById("coverageChart");
-    chart.replaceChildren();
+    document.getElementById('jobsTotal').textContent =
+        results.length;
 
-    if (!results.length) {
-        chart.textContent = "No job descriptions were analyzed.";
-        return;
-    }
+    document.getElementById('sectionsText').textContent =
+        `${data.sections_detected || 0} common resume sections detected`;
 
-    results.forEach((job, index) => {
-        const row = document.createElement("div");
-        row.className = "bar-row";
 
-        const label = document.createElement("span");
-        label.className = "bar-label";
-        label.textContent = job.job_title || `Job ${index + 1}`;
+    /* ------------------------------------
+       6.1 Keyword Coverage Chart
+    ------------------------------------ */
 
-        const track = document.createElement("div");
-        track.className = "bar-track";
+    const chart = document.getElementById('coverageChart');
 
-        const fill = document.createElement("div");
-        fill.className = "bar-fill";
-        fill.style.width = `${clamp(job.keyword_coverage)}%`;
-        track.appendChild(fill);
+    chart.innerHTML = '';
 
-        const value = document.createElement("span");
-        value.className = "bar-value";
-        value.textContent = `${clamp(job.keyword_coverage)}%`;
+    results.forEach(job => {
+        const row = document.createElement('div');
 
-        row.append(label, track, value);
-        chart.appendChild(row);
-    });
-}
+        row.className = 'bar-row';
 
-function renderSkillMap(skills) {
-    const heatmap = document.getElementById("skillHeatmap");
-    heatmap.replaceChildren();
-
-    if (!skills.length) {
-        heatmap.textContent = "No recognized skills found in the resume.";
-        return;
-    }
-
-    skills.forEach(skill => {
-        const chip = document.createElement("span");
-        chip.className = "skill-chip";
-        chip.textContent = skill;
-        heatmap.appendChild(chip);
-    });
-}
-
-function renderJobResults(results) {
-    const container = document.getElementById("jobResults");
-    container.replaceChildren();
-
-    if (!results.length) {
-        container.textContent = "No job results are available.";
-        return;
-    }
-
-    results.forEach((job, index) => {
-        const card = document.createElement("article");
-        card.className = "job-result";
-
-        const heading = document.createElement("div");
-        heading.className = "job-result-head";
-
-        const titleArea = document.createElement("div");
-        const title = document.createElement("h4");
-        title.textContent = `${index + 1}. ${job.job_title || `Job ${index + 1}`}`;
-
-        const subtitle = document.createElement("span");
-        subtitle.className = "muted";
-        subtitle.textContent = "Text similarity score";
-
-        titleArea.append(title, subtitle);
-
-        const score = document.createElement("span");
-        score.className = "score-pill";
-        score.textContent = `${clamp(job.score)}% match`;
-
-        heading.append(titleArea, score);
-
-        const progress = document.createElement("div");
-        progress.className = "job-progress";
-
-        const progressFill = document.createElement("i");
-        progressFill.style.width = `${clamp(job.score)}%`;
-        progress.appendChild(progressFill);
-
-        const columns = document.createElement("div");
-        columns.className = "skill-columns";
-
-        columns.append(
-            makeSkillColumn("Matching skills", job.matched_skills, true),
-            makeSkillColumn("Skills not detected", job.missing_skills, false)
+        const title = esc(job.job_title || 'Untitled job');
+        const coverage = Math.min(
+            100,
+            Number(job.keyword_coverage) || 0
         );
 
-        card.append(heading, progress, columns);
-        container.appendChild(card);
+        row.innerHTML = `
+            <span class="bar-label" title="${title}">
+                ${title}
+            </span>
+
+            <div class="bar-track">
+                <div
+                    class="bar-fill"
+                    style="width: ${coverage}%"
+                ></div>
+            </div>
+
+            <span class="bar-value">
+                ${Number(job.keyword_coverage) || 0}%
+            </span>
+        `;
+
+        chart.appendChild(row);
+    });
+
+    if (results.length === 0) {
+        chart.innerHTML = `
+            <p class="empty-note">
+                No job descriptions were analyzed.
+            </p>
+        `;
+    }
+
+
+    /* ------------------------------------
+       6.2 Resume Skills Map
+    ------------------------------------ */
+
+    const heatmap = document.getElementById('skillHeatmap');
+
+    heatmap.innerHTML = '';
+
+    resumeSkills.forEach(skill => {
+        const skillElement = document.createElement('span');
+
+        skillElement.className = 'skill-chip';
+        skillElement.textContent = skill;
+
+        heatmap.appendChild(skillElement);
+    });
+
+    if (heatmap.children.length === 0) {
+        heatmap.innerHTML = `
+            <p class="empty-note">
+                No recognized skills found. Try a text-based resume
+                with a skills section.
+            </p>
+        `;
+    }
+
+
+    /* ------------------------------------
+       6.3 Job Match Results
+    ------------------------------------ */
+
+    const jobsContainer = document.getElementById('jobResults');
+
+    jobsContainer.innerHTML = '';
+
+    results.forEach((job, index) => {
+        const card = document.createElement('article');
+
+        card.className = 'job-result';
+
+        const matchedSkills = job.matched_skills || [];
+        const missingSkills = job.missing_skills || [];
+
+        const jobTitle = esc(
+            job.job_title || `Job ${index + 1}`
+        );
+
+        const score = Math.min(
+            100,
+            Math.max(0, Number(job.score) || 0)
+        );
+
+        const matchedHTML = matchedSkills.length
+            ? matchedSkills.map(skill => `
+                <span class="skill-chip">${esc(skill)}</span>
+            `).join('')
+            : '<span class="empty-note">No detected matching skills</span>';
+
+        const missingHTML = missingSkills.length
+            ? missingSkills.map(skill => `
+                <span
+                    class="skill-chip"
+                    style="background:#fff0f2;color:#ad4054;border-color:#f6d9de"
+                >
+                    ${esc(skill)}
+                </span>
+            `).join('')
+            : '<span class="empty-note">No missing listed skills</span>';
+
+        card.innerHTML = `
+            <div class="job-result-head">
+                <div>
+                    <h4>${index + 1}. ${jobTitle}</h4>
+                    <span class="muted">Text similarity score</span>
+                </div>
+
+                <span class="score-pill">
+                    ${score}% match
+                </span>
+            </div>
+
+            <div class="job-progress">
+                <i style="width:${score}%"></i>
+            </div>
+
+            <div class="skill-columns">
+
+                <div>
+                    <h5 class="match-heading">
+                        ✓ Matching skills (${matchedSkills.length})
+                    </h5>
+
+                    <div>${matchedHTML}</div>
+                </div>
+
+                <div>
+                    <h5 class="missing-heading">
+                        + Skills not detected (${missingSkills.length})
+                    </h5>
+
+                    <div>${missingHTML}</div>
+                </div>
+
+            </div>
+        `;
+
+        jobsContainer.appendChild(card);
     });
 }
 
-function makeSkillColumn(title, skills, matched) {
-    const column = document.createElement("div");
-    const heading = document.createElement("h5");
-    heading.className = matched ? "match-heading" : "missing-heading";
 
-    const list = Array.isArray(skills) ? skills : [];
-    heading.textContent = `${matched ? "✓" : "+"} ${title} (${list.length})`;
+/* ========================================
+   7. Escape HTML
+======================================== */
 
-    const content = document.createElement("div");
-
-    if (!list.length) {
-        const empty = document.createElement("span");
-        empty.className = "empty-note";
-        empty.textContent = matched
-            ? "No matching skills detected"
-            : "No missing listed skills";
-        content.appendChild(empty);
-    } else {
-        list.forEach(skill => {
-            const chip = document.createElement("span");
-            chip.className = "skill-chip";
-
-            if (!matched) {
-                chip.style.background = "#fff0f2";
-                chip.style.color = "#ad4054";
-                chip.style.borderColor = "#f6d9de";
-            }
-
-            chip.textContent = skill;
-            content.appendChild(chip);
-        });
-    }
-
-    column.append(heading, content);
-    return column;
+function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
 }
+
+
+/* ========================================
+   8. Resume Preview
+======================================== */
 
 function renderPreview() {
     const text = resumeEditor.value.trim();
-    resumePreview.replaceChildren();
 
     if (!text) {
-        const placeholder = document.createElement("div");
-        placeholder.className = "preview-placeholder";
+        resumePreview.innerHTML = `
+            <div class="preview-placeholder">
+                <span class="preview-icon">▤</span>
 
-        const icon = document.createElement("span");
-        icon.className = "preview-icon";
-        icon.textContent = "▤";
+                <h3>Your resume preview</h3>
 
-        const title = document.createElement("h3");
-        title.textContent = "Your resume preview";
+                <p>
+                    Upload and analyze a resume to preview its content.
+                </p>
+            </div>
+        `;
 
-        const message = document.createElement("p");
-        message.textContent = "Upload and analyze a resume to preview its content.";
-
-        placeholder.append(icon, title, message);
-        resumePreview.appendChild(placeholder);
         return;
     }
 
-    // textContent prevents resume text from being interpreted as HTML.
+    // Use textContent to display resume text safely.
     resumePreview.textContent = text;
 }
 
-resumeEditor.addEventListener("input", renderPreview);
+// Update the preview whenever the user edits the resume.
+resumeEditor.addEventListener('input', renderPreview);
 
-document.querySelectorAll(".template-tab").forEach(button => {
-    button.addEventListener("click", () => {
-        document.querySelectorAll(".template-tab").forEach(tab => {
-            tab.classList.toggle("active", tab === button);
+
+/* ========================================
+   9. Resume Template Selection
+======================================== */
+
+document.querySelectorAll('.template-tab').forEach(button => {
+    button.addEventListener('click', () => {
+
+        // Update the active tab.
+        document.querySelectorAll('.template-tab').forEach(tab => {
+            tab.classList.toggle('active', tab === button);
         });
 
-        resumePreview.classList.remove("modern", "classic", "professional");
+        // Change the resume preview style.
+        resumePreview.classList.remove(
+            'modern',
+            'classic',
+            'professional'
+        );
+
         resumePreview.classList.add(button.dataset.template);
     });
 });
 
-document.getElementById("downloadResume").addEventListener("click", () => {
+
+/* ========================================
+   10. Download Edited Resume
+======================================== */
+
+document.getElementById('downloadResume').addEventListener('click', () => {
     const text = resumeEditor.value.trim();
 
     if (!text) {
-        alert("Analyze a resume first, then edit the extracted text.");
+        alert('Analyze a resume first, then edit the extracted text.');
         return;
     }
 
-    downloadBlob(text, "edited_resume.txt", "text/plain;charset=utf-8");
+    downloadBlob(
+        text,
+        'edited_resume.txt',
+        'text/plain;charset=utf-8'
+    );
 });
 
-document.getElementById("downloadReport").addEventListener("click", async () => {
-    if (!latestAnalysis) {
-        alert("Analyze a resume first.");
-        return;
-    }
 
-    const button = document.getElementById("downloadReport");
-    button.disabled = true;
+/* ========================================
+   11. Download PDF Analysis Report
+======================================== */
 
-    try {
-        const response = await fetch("/download-report", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(latestAnalysis)
-        });
+document.getElementById('downloadReport').addEventListener(
+    'click',
+    async () => {
 
-        if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.error || "Could not create the PDF report.");
+        if (!latestAnalysis) {
+            alert('Analyze a resume first.');
+            return;
         }
 
-        const blob = await response.blob();
-        downloadBlob(blob, "resume_analysis_report.pdf", "application/pdf");
-    } catch (error) {
-        alert(error.message || "PDF download failed.");
-    } finally {
-        button.disabled = false;
+        try {
+            const response = await fetch('/download-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(latestAnalysis)
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+
+                throw new Error(
+                    data.error || 'PDF report could not be created.'
+                );
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+
+            link.href = url;
+            link.download = 'resume_analysis_report.pdf';
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            URL.revokeObjectURL(url);
+
+        } catch (error) {
+            alert(error.message);
+        }
     }
-});
+);
+
+
+/* ========================================
+   12. General File Download Helper
+======================================== */
 
 function downloadBlob(content, filename, type) {
-    const blob = content instanceof Blob
-        ? content
-        : new Blob([content], { type });
-
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+
+    const link = document.createElement('a');
 
     link.href = url;
     link.download = filename;
+
     document.body.appendChild(link);
     link.click();
     link.remove();
 
-    // Delay revocation so the browser can start the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    URL.revokeObjectURL(url);
 }
+``` code for script1.js
+   
+
+   
